@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  apache:
+    build:
+      dockerfile: Dockerfile
+    container_name: lamp-apache
+    restart: always
+    ports:
+      - "8080:80"   # Apache disponibile su localhost:8080
+    volumes:
+      - ./html:/var/www/html   # codice PHP
+    depends_on:
+      - db
+
+  db:
+    image: mysql
+    container_name: lamp-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: lamp_db
+      MYSQL_USER: lamp_user
+      MYSQL_PASSWORD: lamp_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./db_data:/var/lib/mysql
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: lamp-phpmyadmin
+    restart: always
+    environment:
+      PMA_HOST: db
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "8888:80"
+    depends_on:
+      - db
