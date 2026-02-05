@@ -365,20 +365,96 @@ http {
 
 ### File: `php/Dockerfile`
 
-Il Dockerfile include:
-- Estensioni MySQL e PDO
-- Estensione Redis per sessioni distribuite
-- Configurazione PHP personalizzata
+```dockerfile
+FROM php:8.2-fpm
+
+# Installare estensioni PHP necessarie
+RUN docker-php-ext-install mysqli pdo pdo_mysql
+
+# Installare Redis extension
+RUN pecl install redis && docker-php-ext-enable redis
+
+# Copiare la configurazione PHP per Redis sessions
+COPY php.ini /usr/local/etc/php/
+
+# Copiare l'applicazione nel container
+COPY app/ /var/www/html/
+
+# Impostare i permessi corretti
+RUN chown -R www-data:www-data /var/www/html
+
+EXPOSE 9000
+
+CMD ["php-fpm"]
+```
+
+**Cosa fa:**
+- Usa PHP 8.2 con FPM (FastCGI Process Manager)
+- Installa estensioni MySQL e PDO per la connessione al database
+- Installa l'estensione Redis per gestire le sessioni distribuite
+- Copia la configurazione PHP personalizzata (php.ini)
+- Copia l'applicazione in `/var/www/html/`
+- Espone la porta 9000 per le connessioni FastCGI
 
 ### File: `php/php.ini`
 
-Configura le sessioni PHP per usare Redis come storage, permettendo la condivisione delle sessioni tra i tre server PHP-FPM.
+```ini
+; Session configuration - use Redis instead of files
+session.save_handler = redis
+session.save_path = "tcp://redis:6379/0"
+session.name = PHPSESSID
+session.serialize_handler = php_serialize
+session.gc_maxlifetime = 1440
+session.gc_probability = 1
+session.gc_divisor = 100
+
+; Redis connection settings
+redis.default_ttl = 0
+redis.session.locking_enabled = 1
+redis.session.lock_expire = 60
+
+; Display errors for debugging
+display_errors = On
+display_startup_errors = On
+error_reporting = E_ALL
+```
+
+**Cosa fa:**
+- Configura Redis come storage per le sessioni PHP (`session.save_handler = redis`)
+- Usa la connessione TCP a Redis (`tcp://redis:6379/0`)
+- Abilita il locking delle sessioni per evitare race conditions
+- Configura il garbage collection delle sessioni
+- Abilita la visualizzazione degli errori per il debugging
 
 ## Passaggio 4: Configurare il Database Server (MySQL)
 
 ### File: `mysql/init.sql`
 
-Crea il database e una tabella di esempio con dati di test.
+```sql
+-- Creare il database
+CREATE DATABASE IF NOT EXISTS app_db;
+
+USE app_db;
+
+-- Creare una tabella di esempio
+CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Inserire dati di esempio
+INSERT INTO users (name, email) VALUES
+('Mario Rossi', 'mario@example.com'),
+('Luigi Bianchi', 'luigi@example.com'),
+('Anna Verdi', 'anna@example.com');
+```
+
+**Cosa fa:**
+- Crea un database chiamato `app_db`
+- Crea una tabella `users` con colonne id, name, email e timestamp
+- Inserisce 3 righe di dati di esempio per il testing
 
 ## Passaggio 5: Docker Compose - Orchestrazione Completa
 
