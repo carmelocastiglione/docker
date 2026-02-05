@@ -460,12 +460,202 @@ INSERT INTO users (name, email) VALUES
 
 ### File: `docker-compose.yml`
 
-Contiene la definizione di tutti i servizi:
-- 1x HAProxy (load balancer)
-- 3x Nginx (web servers)
-- 3x PHP-FPM (app servers)
-- 1x Redis (cache & sessions)
-- 1x MySQL (database)
+```yaml
+version: '3.8'
+
+services:
+  # Load Balancer - HAProxy
+  haproxy:
+    build:
+      context: ./haproxy
+      dockerfile: Dockerfile
+    container_name: load-balancer
+    ports:
+      - "80:80"
+      - "8404:8404"  # Stats page
+    volumes:
+      - ./logs:/var/log/haproxy
+    depends_on:
+      - nginx1
+      - nginx2
+      - nginx3
+    networks:
+      - app-network
+    restart: always
+
+  # Web Server 1 - Nginx
+  nginx1:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: web-server-1
+    volumes:
+      - ./php/app:/var/www/html
+    depends_on:
+      - php1
+    networks:
+      - app-network
+    restart: always
+
+  # Web Server 2 - Nginx
+  nginx2:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: web-server-2
+    volumes:
+      - ./php/app:/var/www/html
+    depends_on:
+      - php2
+    networks:
+      - app-network
+    restart: always
+
+  # Web Server 3 - Nginx
+  nginx3:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: web-server-3
+    volumes:
+      - ./php/app:/var/www/html
+    depends_on:
+      - php3
+    networks:
+      - app-network
+    restart: always
+
+  # Application Server 1 - PHP-FPM
+  php1:
+    build:
+      context: ./php
+      dockerfile: Dockerfile
+    container_name: app-server-1
+    volumes:
+      - ./php/app:/var/www/html
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - app-network
+    restart: always
+    environment:
+      - MYSQL_HOST=mysql
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=root
+      - MYSQL_DATABASE=app_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - APP_SERVER_NAME=php1
+
+  # Application Server 2 - PHP-FPM
+  php2:
+    build:
+      context: ./php
+      dockerfile: Dockerfile
+    container_name: app-server-2
+    volumes:
+      - ./php/app:/var/www/html
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - app-network
+    restart: always
+    environment:
+      - MYSQL_HOST=mysql
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=root
+      - MYSQL_DATABASE=app_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - APP_SERVER_NAME=php2
+
+  # Application Server 3 - PHP-FPM
+  php3:
+    build:
+      context: ./php
+      dockerfile: Dockerfile
+    container_name: app-server-3
+    volumes:
+      - ./php/app:/var/www/html
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - app-network
+    restart: always
+    environment:
+      - MYSQL_HOST=mysql
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=root
+      - MYSQL_DATABASE=app_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - APP_SERVER_NAME=php3
+
+  # Cache & Session Store - Redis
+  redis:
+    image: redis:7-alpine
+    container_name: cache-server
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - app-network
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      timeout: 3s
+      retries: 5
+
+  # Database Server - MySQL
+  mysql:
+    image: mysql:8.0
+    container_name: db-server
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: app_db
+    volumes:
+      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - mysql-data:/var/lib/mysql
+    networks:
+      - app-network
+    restart: always
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 5s
+      retries: 10
+
+volumes:
+  mysql-data:
+  redis-data:
+
+networks:
+  app-network:
+    driver: bridge
+```
+
+**Componenti:**
+
+| Servizio | Container | Porta | Ruolo |
+|----------|-----------|-------|-------|
+| HAProxy | load-balancer | 80, 8404 | Load balancer e distribuzione traffico |
+| Nginx 1-3 | web-server-1/2/3 | - | Web server (interno) |
+| PHP-FPM 1-3 | app-server-1/2/3 | - | Application server (interno) |
+| Redis | cache-server | 6379 | Cache e session store |
+| MySQL | db-server | 3306 | Database |
+
+**Caratteristiche Principali:**
+- Tutti i servizi sono sulla stessa rete `app-network`
+- Health checks per MySQL e Redis garantiscono la disponibilità
+- Volumi persistenti per MySQL e Redis
+- Environment variables per la configurazione di database e Redis
+- `restart: always` per la resilienza
+- Dependencies per garantire l'ordine di avvio
 
 ## Passaggio 6: Avviare l'Architettura
 
