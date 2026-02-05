@@ -95,6 +95,116 @@ multitier/
 └── logs/
 ```
 
+## Application Entry Point: `php/app/index.php`
+
+La pagina principale dell'applicazione demonstra il funzionamento dell'architettura multi-tier:
+
+### Funzionalità Principali:
+
+1. **Gestione delle Sessioni con Redis**
+   - Inizializza una sessione PHP che viene memorizzata in Redis
+   - Ogni visita incrementa il contatore `visits` in Redis
+   - Le sessioni persistono anche dopo il riavvio dei container
+
+2. **Connessione al Database MySQL**
+   - Test automatico della connessione al database
+   - Esegue una query di prova per verificare la disponibilità
+   - Mostra un messaggio di successo o errore
+
+3. **Visualizzazione delle Informazioni del Sistema**
+   - **PHP Version:** Versione di PHP in esecuzione
+   - **Hostname (App Server):** Identifica quale istanza PHP-FPM sta gestendo la richiesta (php1, php2 o php3)
+   - **Session ID:** ID unico della sessione memorizzato in Redis
+   - **Session Visits:** Contatore di visite per questa sessione (salvato in Redis)
+
+4. **Dimostrazione del Load Balancing**
+   - Ricaricando la pagina più volte, si può osservare il cambio del `Hostname` tra le tre istanze (php1, php2, php3)
+   - Questo dimostra che HAProxy distribuisce il traffico equamente tra i server
+
+### Come Funziona:
+
+- Gli utenti navigano a `http://localhost/`
+- HAProxy riceve la richiesta e la instrada a uno dei 3 server Nginx
+- Nginx passa la richiesta al PHP-FPM corrispondente
+- Lo script PHP si connette a MySQL e Redis
+- La pagina mostra tutte le informazioni del sistema distribuito
+
+### Codice Sorgente:
+
+```php
+<?php
+session_start();
+
+// Only count page views, not favicon or other asset requests
+if (strpos($_SERVER['REQUEST_URI'], '/favicon.ico') === false && 
+    strpos($_SERVER['REQUEST_URI'], '/') === 0) {
+    
+    // Counter per dimostrare il load balancing tra app servers
+    if (!isset($_SESSION['visits'])) {
+        $_SESSION['visits'] = 0;
+    }
+    $_SESSION['visits']++;
+}
+
+// Test della connessione al database
+$servername = "mysql";
+$username = "root";
+$password = "root";
+$dbname = "app_db";
+
+try {
+    $conn = new mysqli($servername, $username, $password, $dbname);
+    
+    if ($conn->connect_error) {
+        throw new Exception("Connessione fallita: " . $conn->connect_error);
+    }
+    
+    echo "<h1>Architettura Multi-Tier con Docker - Load Balancing</h1>";
+    echo "<p>Web Server: <strong>Nginx (Load Balanced) ✓</strong></p>";
+    echo "<p>Load Balancer: <strong>HAProxy ✓</strong></p>";
+    echo "<p>Application Server: <strong>PHP-FPM (x3 instances) ✓</strong></p>";
+    echo "<p>Session Storage: <strong>Redis ✓</strong></p>";
+    echo "<p>Database Server: <strong>MySQL ✓</strong></p>";
+    
+    // Eseguire una semplice query
+    $sql = "SELECT 1 as test_connection";
+    $result = $conn->query($sql);
+    
+    if ($result->num_rows > 0) {
+        echo "<p style='color: green;'><strong>✓ Connessione al database stabilita con successo!</strong></p>";
+    }
+    
+    $conn->close();
+    
+} catch (Exception $e) {
+    echo "<p style='color: red;'><strong>✗ Errore:</strong> " . $e->getMessage() . "</p>";
+}
+?>
+
+<hr>
+
+<h2>Informazioni del Sistema</h2>
+<p><strong>PHP Version:</strong> <?php echo phpversion(); ?></p>
+<p><strong>Hostname (App Server):</strong> <?php echo getenv('APP_SERVER_NAME') ?: gethostname(); ?></p>
+<p><strong>Data:</strong> <?php echo date('Y-m-d H:i:s'); ?></p>
+<p><strong>Session ID:</strong> <?php echo session_id(); ?></p>
+<p><strong>Session Visits (Redis):</strong> <?php echo $_SESSION['visits']; ?></p>
+
+<hr>
+
+<h2>Prova il Load Balancing</h2>
+<p>Ricarica la pagina più volte. Potrai vedere:</p>
+<ul>
+    <li><strong>Hostname:</strong> Cambierà tra php1, php2, php3 (round-robin)</li>
+    <li><strong>Session Visits:</strong> Aumenterà sempre (grazie a Redis)</li>
+    <li><strong>Session ID:</strong> Rimarrà lo stesso (sessione persistente)</li>
+</ul>
+
+<form method="POST">
+    <input type="submit" value="Ricarica e prosegui">
+</form>
+```
+
 ## Passaggio 1: Configurare il Load Balancer (HAProxy)
 
 ### File: `haproxy/Dockerfile`
