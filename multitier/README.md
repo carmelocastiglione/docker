@@ -291,7 +291,75 @@ CMD ["nginx", "-g", "daemon off;"]
 
 ### File: `nginx/nginx.conf`
 
-Nginx è configurato per fare load balance tra 3 server PHP-FPM.
+Nginx è configurato per fare load balance tra 3 server PHP-FPM:
+
+```
+user nginx;
+worker_processes auto;
+error_log /var/log/nginx/error.log warn;
+pid /var/run/nginx.pid;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent" "$http_x_forwarded_for"';
+
+    access_log /var/log/nginx/access.log main;
+
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout 65;
+    types_hash_max_size 2048;
+
+    # Configuration per PHP-FPM - Load balance across multiple PHP servers
+    upstream php-fpm {
+        least_conn;
+        server php1:9000;
+        server php2:9000;
+        server php3:9000;
+    }
+
+    server {
+        listen 8080;
+        server_name localhost;
+
+        root /var/www/html;
+        index index.php index.html;
+
+        location / {
+            try_files $uri $uri/ /index.php?$query_string;
+        }
+
+        # Gestire i file PHP
+        location ~ \.php$ {
+            fastcgi_pass php-fpm;
+            fastcgi_index index.php;
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+            include fastcgi_params;
+        }
+
+        # Negare accesso ai file nascosti
+        location ~ /\. {
+            deny all;
+        }
+    }
+}
+```
+
+**Cosa fa:**
+- Ascolta sulla porta 8080
+- Definisce un upstream `php-fpm` che load balance tra 3 server PHP-FPM (php1, php2, php3)
+- Usa l'algoritmo `least_conn` per distribuire le connessioni al server meno occupato
+- Reindirizza tutte le richieste PHP al backend PHP-FPM
+- Protegge i file nascosti (dot files)
 
 ## Passaggio 3: Configurare l'Application Server (PHP-FPM)
 
