@@ -255,7 +255,7 @@ backend web-servers
     option httpchk GET /
     option forwardfor
     cookie SERVERID insert indirect nocache
-    
+
     server nginx1 nginx1:8080 check cookie nginx1
     server nginx2 nginx2:8080 check cookie nginx2
     server nginx3 nginx3:8080 check cookie nginx3
@@ -267,6 +267,7 @@ listen stats
     stats uri /stats
     stats refresh 10s
     stats admin if TRUE
+
 ```
 
 **Cosa fa:**
