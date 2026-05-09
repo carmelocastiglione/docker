@@ -1,0 +1,13 @@
+{
+  "name": "api-docker",
+  "version": "1.0.0",
+  "description": "API RESTful con Node.js, Express e MySQL in Docker",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mysql2": "^3.3.0"
+  }
+}

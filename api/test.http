@@ -1,0 +1,51 @@
+### Base URL
+@baseUrl = http://localhost:3000
+
+### GET - Lista tutti gli studenti
+GET {{baseUrl}}/api/studenti
+
+### GET - Uno studente
+GET {{baseUrl}}/api/studenti/1
+
+### POST - Crea nuovo studente
+POST {{baseUrl}}/api/studenti
+Content-Type: application/json
+
+{
+  "nome": "Francesco",
+  "cognome": "Neri",
+  "email": "francesco@example.com",
+  "data_nascita": "2005-06-10"
+}
+
+### PUT - Aggiorna studente
+PUT {{baseUrl}}/api/studenti/1
+Content-Type: application/json
+
+{
+  "nome": "Marco",
+  "cognome": "Rossi",
+  "email": "marco.rossi@example.com",
+  "data_nascita": "2005-03-15"
+}
+
+### DELETE - Elimina studente
+DELETE {{baseUrl}}/api/studenti/5
+
+### GET - Lista corsi
+GET {{baseUrl}}/api/corsi
+
+### GET - Corsi di uno studente
+GET {{baseUrl}}/api/iscrizioni/1
+
+### POST - Iscrivi studente a corso
+POST {{baseUrl}}/api/iscrizioni
+Content-Type: application/json
+
+{
+  "id_studente": 5,
+  "id_corso": 1
+}
+
+### GET - Health check
+GET {{baseUrl}}/health

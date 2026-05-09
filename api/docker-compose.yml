@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  # Servizio MySQL
+  db:
+    image: mysql:8.0
+    container_name: scuola_db
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: scuola_db
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - db_data:/var/lib/mysql
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # Servizio API Node.js
+  api:
+    build: .
+    container_name: scuola_api
+    environment:
+      DB_HOST: db
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: scuola_db
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
+    command: npm start
+
+  # Servizio PHPMyAdmin per gestione database
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: scuola_phpmyadmin
+    environment:
+      PMA_HOST: db
+      PMA_USER: root
+      PMA_PASSWORD: root
+      PMA_DATABASE: scuola_db
+    ports:
+      - "8888:80"
+    depends_on:
+      - db
+    networks:
+      - app-network
+
+volumes:
+  db_data:
+
+networks:
+  app-network:
+    driver: bridge
